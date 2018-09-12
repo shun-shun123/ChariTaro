@@ -10,6 +10,7 @@ import android.location.LocationManager
 import android.os.Bundle
 import android.support.v7.app.AppCompatActivity
 import android.util.Log
+import kotlinx.android.synthetic.main.activity_main.*
 
 class MainActivity : AppCompatActivity(), SensorEventListener, LocationListener {
 
@@ -50,24 +51,26 @@ class MainActivity : AppCompatActivity(), SensorEventListener, LocationListener 
     override fun onSensorChanged(sensorEvent: SensorEvent?) {
         if (sensorEvent?.sensor?.type == Sensor.TYPE_ACCELEROMETER) {
             Log.d(SENSOR_TAG, "ACCELEROMETER sensor is changed")
+            mLocationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000L, 0.5f, this)
         }
     }
     /*
     LocationListenerインタフェースの実装
      */
     override fun onProviderDisabled(p0: String?) {
-        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+
     }
 
     override fun onProviderEnabled(p0: String?) {
-        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+
     }
 
     override fun onStatusChanged(p0: String?, p1: Int, p2: Bundle?) {
-        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+
     }
 
-    override fun onLocationChanged(p0: Location?) {
-        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+    override fun onLocationChanged(location: Location?) {
+        latitude.text = location?.latitude.toString()
+        longitude.text = location?.longitude.toString()
     }
 }
