@@ -11,6 +11,8 @@ import android.os.Bundle
 import android.support.v7.app.AppCompatActivity
 import android.util.Log
 import kotlinx.android.synthetic.main.activity_main.*
+import kotlin.math.pow
+import kotlin.math.sqrt
 
 class MainActivity : AppCompatActivity(), SensorEventListener, LocationListener {
 
@@ -18,6 +20,16 @@ class MainActivity : AppCompatActivity(), SensorEventListener, LocationListener 
     private lateinit var mLocationManager: LocationManager
     private lateinit var mAccelerometer: Sensor
     private val SENSOR_TAG = "SENSOR_TAG"
+
+    // シェイク検知に必要な定数
+    private val SHAKE_TIMEOUT = 300
+    private val FORCE_THRESHOLD = 10
+    private val SHAKE_COUNT = 3
+
+    // シェイク検知に必要な変数
+    private var mLastTime: Long = 0
+    private var mShakeCount = 0
+    private var preAccel: Float = 1.0F
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -50,8 +62,27 @@ class MainActivity : AppCompatActivity(), SensorEventListener, LocationListener 
 
     override fun onSensorChanged(sensorEvent: SensorEvent?) {
         if (sensorEvent?.sensor?.type == Sensor.TYPE_ACCELEROMETER) {
-            Log.d(SENSOR_TAG, "ACCELEROMETER sensor is changed")
-            mLocationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000L, 0.5f, this)
+            var values: FloatArray = sensorEvent.values
+            val accel: Float = sqrt(values[0].pow(2) + values[1].pow(2) + values[2].pow(2))
+            val diff: Float = Math.abs(preAccel - accel)
+            if (diff > FORCE_THRESHOLD) {
+                Log.d(SENSOR_TAG, "mShakeCount: $mShakeCount")
+                val now = System.currentTimeMillis()
+                if ((now - mLastTime) < SHAKE_TIMEOUT) {
+                    // シェイク中
+                    mShakeCount++
+                    if (mShakeCount > SHAKE_COUNT) {
+                        // シェイク検知
+                        mLocationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000, 1.0F, this)
+                        Log.d(SENSOR_TAG, "Shake!!")
+                        mShakeCount = 0
+                    }
+                } else {
+                    mShakeCount = 0
+                }
+                mLastTime = now
+            }
+            preAccel = accel
         }
     }
     /*
