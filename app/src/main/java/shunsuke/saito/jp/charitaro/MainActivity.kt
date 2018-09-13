@@ -51,6 +51,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener, LocationListener 
     override fun onPause() {
         super.onPause()
         mSensorManager.unregisterListener(this)
+        mLocationManager.removeUpdates(this)
     }
     /*
     SensorEventListenerインタフェースの実装
@@ -74,7 +75,6 @@ class MainActivity : AppCompatActivity(), SensorEventListener, LocationListener 
                     if (mShakeCount > SHAKE_COUNT) {
                         // シェイク検知
                         mLocationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000, 1.0F, this)
-                        Log.d(SENSOR_TAG, "Shake!!")
                         mShakeCount = 0
                     }
                 } else {
