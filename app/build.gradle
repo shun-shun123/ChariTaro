@@ -4,6 +4,9 @@ apply plugin: 'kotlin-android'
 
 apply plugin: 'kotlin-android-extensions'
 
+// realm導入
+apply plugin: 'realm-android'
+
 android {
     compileSdkVersion 27
     defaultConfig {
