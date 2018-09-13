@@ -10,6 +10,8 @@ import android.location.LocationManager
 import android.os.Bundle
 import android.support.v7.app.AppCompatActivity
 import android.util.Log
+import io.realm.Realm
+import io.realm.kotlin.delete
 import kotlinx.android.synthetic.main.activity_main.*
 import kotlin.math.pow
 import kotlin.math.sqrt
@@ -21,19 +23,22 @@ class MainActivity : AppCompatActivity(), SensorEventListener, LocationListener 
     private lateinit var mAccelerometer: Sensor
     private val SENSOR_TAG = "SENSOR_TAG"
 
-    // シェイク検知に必要な定数
+    // シェイク検知に必要な定数・変数
     private val SHAKE_TIMEOUT = 300
     private val FORCE_THRESHOLD = 10
     private val SHAKE_COUNT = 3
-
-    // シェイク検知に必要な変数
     private var mLastTime: Long = 0
     private var mShakeCount = 0
     private var preAccel: Float = 1.0F
 
+    private lateinit var realm: Realm
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+
+        // Realm初期設定
+        Realm.init(this)
 
         // ジャイロセンサーマネージャの取得
         mSensorManager = getSystemService(SENSOR_SERVICE) as SensorManager
@@ -46,12 +51,14 @@ class MainActivity : AppCompatActivity(), SensorEventListener, LocationListener 
     override fun onResume() {
         super.onResume()
         mSensorManager.registerListener(this, mAccelerometer, SensorManager.SENSOR_DELAY_UI)
+        realm = Realm.getDefaultInstance()
     }
 
     override fun onPause() {
         super.onPause()
         mSensorManager.unregisterListener(this)
         mLocationManager.removeUpdates(this)
+        realm.close()
     }
     /*
     SensorEventListenerインタフェースの実装
