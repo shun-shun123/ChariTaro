@@ -11,6 +11,7 @@ import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
 import android.os.Bundle
+import android.support.v7.app.AlertDialog
 import android.support.v7.app.AppCompatActivity
 import android.util.Log
 import io.realm.Realm
@@ -27,8 +28,8 @@ class MainActivity : AppCompatActivity(), SensorEventListener, LocationListener 
 
     // シェイク検知に必要な定数・変数
     private val SHAKE_TIMEOUT = 300
-    private val FORCE_THRESHOLD = 10
-    private val SHAKE_COUNT = 3
+    private val FORCE_THRESHOLD = 6
+    private val SHAKE_COUNT = 2
     private var mLastTime: Long = 0
     private var mShakeCount = 0
     private var preAccel: Float = 1.0F
@@ -67,9 +68,22 @@ class MainActivity : AppCompatActivity(), SensorEventListener, LocationListener 
         if (mLastLocationData != null) {
             // すでに保存されている位置情報があればSearchActivityに遷移する
             val intent = Intent(this@MainActivity, SearchActivity::class.java)
-            intent.putExtra("Latitude", mLastLocationData?.latitude)
-            intent.putExtra("Longitude", mLastLocationData?.longitude)
-            startActivity(intent)
+            val builder: AlertDialog.Builder = AlertDialog.Builder(this@MainActivity)
+            builder.apply {
+                setMessage("自転車を探します？")
+                setPositiveButton("探す") {dialogInterface, id ->
+                    intent.putExtra("Latitude", mLastLocationData?.latitude)
+                    intent.putExtra("Longitude", mLastLocationData?.longitude)
+                    startActivity(intent)
+                }
+                setNegativeButton("いいえ") {dialogInterface, id ->
+                    realm.executeTransaction {
+                        mLastLocationData?.deleteFromRealm()
+                        mLastLocationData = null
+                    }
+                }
+            }
+            builder.show()
         }
         latitude.text = mLastLocationData?.latitude.toString()
         longitude.text = mLastLocationData?.longitude.toString()
