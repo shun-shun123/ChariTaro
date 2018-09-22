@@ -1,6 +1,7 @@
 package shunsuke.saito.jp.charitaro
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.hardware.Sensor
 import android.hardware.SensorEvent
@@ -63,6 +64,13 @@ class MainActivity : AppCompatActivity(), SensorEventListener, LocationListener 
         }
         realm = Realm.getDefaultInstance()
         mLastLocationData = realm.where(LocationData::class.java).equalTo("isSaved", true).findFirst()
+        if (mLastLocationData != null) {
+            // すでに保存されている位置情報があればSearchActivityに遷移する
+            val intent = Intent(this@MainActivity, SearchActivity::class.java)
+            intent.putExtra("Latitude", mLastLocationData?.latitude)
+            intent.putExtra("Longitude", mLastLocationData?.longitude)
+            startActivity(intent)
+        }
         latitude.text = mLastLocationData?.latitude.toString()
         longitude.text = mLastLocationData?.longitude.toString()
         mSensorManager.registerListener(this, mAccelerometer, SensorManager.SENSOR_DELAY_UI)
