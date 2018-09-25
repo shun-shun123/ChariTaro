@@ -11,9 +11,15 @@ import android.location.LocationManager
 import android.os.Bundle
 import android.support.v7.app.AppCompatActivity
 import android.util.Log
+import android.view.View
 import kotlinx.android.synthetic.main.activity_search.*
 
 class SearchActivity : AppCompatActivity(), LocationListener, SensorEventListener {
+
+    // 日本における1mあたりの緯度経度
+    private val ONE_METER_LATITUDE: Double = 0.000008983148616
+    private val ONE_METER_LONGITUDE: Double = 0.000010966382364
+    private val NEAR_BIKE = Math.sqrt(ONE_METER_LATITUDE * ONE_METER_LATITUDE + ONE_METER_LONGITUDE * ONE_METER_LONGITUDE)
 
     //  MainActivityから引き渡される登録済みの位置情報
     private var mLongitude: Double = 0.0
@@ -50,6 +56,9 @@ class SearchActivity : AppCompatActivity(), LocationListener, SensorEventListene
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_search)
+
+        alerm_text.visibility = View.INVISIBLE
+
         mLongitude = intent.getDoubleExtra("Longitude", 0.0)
         mLatitude = intent.getDoubleExtra("Latitude", 0.0)
         Log.d("SENSOR_TAG", mLongitude.toString())
@@ -65,7 +74,7 @@ class SearchActivity : AppCompatActivity(), LocationListener, SensorEventListene
 
     override fun onResume() {
         super.onResume()
-        mLocationManager?.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000, 1.0F, this)
+        mLocationManager?.requestLocationUpdates(LocationManager.GPS_PROVIDER, 100, 1.0F, this)
         mSensorManager.registerListener(this, mAccelerameter, SensorManager.SENSOR_DELAY_UI)
         mSensorManager.registerListener(this, mMagineticField, SensorManager.SENSOR_DELAY_UI)
     }
@@ -108,7 +117,6 @@ class SearchActivity : AppCompatActivity(), LocationListener, SensorEventListene
         }
         val radian: Double = Math.asin(sin)
         gpsDegree = Math.toDegrees(radian)
-        Log.d("DEGREE", gpsDegree.toString())
         if (gpsDegree < 0.0) {
             gpsDegree = gpsDegree * -1 + 90
             if (!isEast) {
@@ -167,7 +175,7 @@ class SearchActivity : AppCompatActivity(), LocationListener, SensorEventListene
             timer++
             if (timer >= 20) {
                 // -mAzimuthZ.toFloat()を代入して常に北を指し示す
-                search_arrow.rotation = (-mAzimuthZ.toFloat() + gpsDegree).toFloat()
+                search_arrow.rotation = (-mAzimuthZ.toFloat() - gpsDegree).toFloat()
                 timer = 0
             }
             angle.text = info
