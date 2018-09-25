@@ -3,6 +3,7 @@ package shunsuke.saito.jp.charitaro
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Color
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
@@ -14,6 +15,7 @@ import android.os.Bundle
 import android.support.v7.app.AlertDialog
 import android.support.v7.app.AppCompatActivity
 import android.util.Log
+import android.view.View
 import io.realm.Realm
 import kotlinx.android.synthetic.main.activity_main.*
 import kotlin.math.pow
@@ -36,15 +38,36 @@ class MainActivity : AppCompatActivity(), SensorEventListener, LocationListener 
 
     private lateinit var realm: Realm
     private var mLastLocationData: LocationData? = null
+    private var isSaved: Boolean = false
 
     private val REQUEST_LOCATION_PERMISSION_CODE: Int = 1
+
+    private fun viewDebug(debug: Boolean = true) {
+        textView.isEnabled = debug
+        textView.visibility = if (debug) View.VISIBLE else View.INVISIBLE
+        textView3.isEnabled = debug
+        textView3.visibility = if (debug) View.VISIBLE else View.INVISIBLE
+        latitude.isEnabled = debug
+        latitude.visibility = if (debug) View.VISIBLE else View.INVISIBLE
+        longitude.isEnabled = debug
+        longitude.visibility = if (debug) View.VISIBLE else View.INVISIBLE
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+        viewDebug(false)
 
         // Realm初期設定
         Realm.init(this)
+
+        delete_button.setOnClickListener {
+            realm.executeTransaction {
+                mLastLocationData?.deleteFromRealm()
+                mLastLocationData = null
+            }
+            isSaved = false
+        }
 
         // ジャイロセンサーマネージャの取得
         mSensorManager = getSystemService(SENSOR_SERVICE) as SensorManager
@@ -59,6 +82,10 @@ class MainActivity : AppCompatActivity(), SensorEventListener, LocationListener 
 
     override fun onResume() {
         super.onResume()
+        if (!isSaved) {
+            imageView.setBackgroundColor(Color.BLACK)
+            textView2.text = "端末を振って位置を登録！"
+        }
         if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
             // ちゃんと位置情報使わせてくれるならこっちもそれ使って頑張る
             mLocationManager = getSystemService(LOCATION_SERVICE) as LocationManager
@@ -66,24 +93,27 @@ class MainActivity : AppCompatActivity(), SensorEventListener, LocationListener 
         realm = Realm.getDefaultInstance()
         mLastLocationData = realm.where(LocationData::class.java).equalTo("isSaved", true).findFirst()
         if (mLastLocationData != null) {
+            isSaved = true
+        }
+        if (isSaved) {
             // すでに保存されている位置情報があればSearchActivityに遷移する
             val intent = Intent(this@MainActivity, SearchActivity::class.java)
-            val builder: AlertDialog.Builder = AlertDialog.Builder(this@MainActivity)
-            builder.apply {
-                setMessage("自転車を探します？")
+            AlertDialog.Builder(this@MainActivity).apply {
+                setMessage("自転車を探しますか？")
                 setPositiveButton("探す") {dialogInterface, id ->
                     intent.putExtra("Latitude", mLastLocationData?.latitude)
                     intent.putExtra("Longitude", mLastLocationData?.longitude)
                     startActivity(intent)
                 }
-                setNegativeButton("いいえ") {dialogInterface, id ->
+                setNegativeButton("登録し直す") {dialogInterface, id ->
+                    // RealmのDBから以前のデータを削除する
                     realm.executeTransaction {
                         mLastLocationData?.deleteFromRealm()
                         mLastLocationData = null
                     }
+                    isSaved = false
                 }
-            }
-            builder.show()
+            }.show()
         }
         latitude.text = mLastLocationData?.latitude.toString()
         longitude.text = mLastLocationData?.longitude.toString()
@@ -105,8 +135,12 @@ class MainActivity : AppCompatActivity(), SensorEventListener, LocationListener 
     }
 
     override fun onSensorChanged(sensorEvent: SensorEvent?) {
-        if (sensorEvent?.sensor?.type == Sensor.TYPE_ACCELEROMETER) {
-            var values: FloatArray = sensorEvent.values
+        if (sensorEvent == null) {
+            return Unit
+        }
+        // Sensorのタイプが加速度センサなら以下の処理
+        if (sensorEvent.sensor.type == Sensor.TYPE_ACCELEROMETER) {
+            val values: FloatArray = sensorEvent.values.clone()
             val accel: Float = sqrt(values[0].pow(2) + values[1].pow(2) + values[2].pow(2))
             val diff: Float = Math.abs(preAccel - accel)
             if (diff > FORCE_THRESHOLD) {
@@ -145,17 +179,25 @@ class MainActivity : AppCompatActivity(), SensorEventListener, LocationListener 
     }
 
     override fun onLocationChanged(location: Location?) {
-        latitude.text = location?.latitude.toString()
-        longitude.text = location?.longitude.toString()
-        if (mLastLocationData == null) {
+        if (location == null) {
+            return Unit
+        }
+        latitude.text = location.latitude.toString()
+        longitude.text = location.longitude.toString()
+        if (mLastLocationData == null && !isSaved) {
             realm.executeTransaction { realm ->
                 val obj = realm.createObject(LocationData::class.java)
                 obj.isSaved = true
-                obj.latitude = location?.latitude!!
+                obj.latitude = location.latitude
                 obj.longitude = location.longitude
-                Log.d(SENSOR_TAG, "Realm Data is Saved")
             }
+            isSaved = true
             mLastLocationData = realm.where(LocationData::class.java).equalTo("isSaved", true).findFirst()
+        }
+        if (isSaved) {
+            imageView.setBackgroundColor(Color.BLUE)
+            textView2.text = "保存完了！"
+            Log.d("DEBUG", "COLOR is changed")
         }
     }
 }
