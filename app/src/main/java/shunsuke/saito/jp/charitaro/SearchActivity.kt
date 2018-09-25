@@ -14,9 +14,6 @@ import android.util.Log
 import kotlinx.android.synthetic.main.activity_search.*
 
 class SearchActivity : AppCompatActivity(), LocationListener, SensorEventListener {
-    private fun radianToDegrees(angrad: Float): Int {
-        return Math.floor(if (angrad >= 0) Math.toDegrees(angrad.toDouble()) else 360 + Math.toDegrees(angrad.toDouble())).toInt()
-    }
 
     //  MainActivityから引き渡される登録済みの位置情報
     private var mLongitude: Double = 0.0
@@ -31,7 +28,7 @@ class SearchActivity : AppCompatActivity(), LocationListener, SensorEventListene
 
     /* 方位センサ&加速度センサによる現在の方角を知るための変数 */
     // 行列数
-    private val MATRIX_SIZE: Int = 16
+    private val MATRIX_SIZE: Int = 9
     // 三次元
     private val DIMENTION: Int = 3
     // Sensor管理のための変数
@@ -134,16 +131,18 @@ class SearchActivity : AppCompatActivity(), LocationListener, SensorEventListene
 
     }
 
-    override fun onSensorChanged(event: SensorEvent?) {
-        if (event == null) return Unit
-        when (event.sensor.type) {
+    override fun onSensorChanged(sensorEvent: SensorEvent?) {
+        if (sensorEvent == null) return Unit
+        // センサの取得値を保存する
+        when (sensorEvent.sensor.type) {
             Sensor.TYPE_ACCELEROMETER -> {
-                mAccelerometerValues = event.values
+                mAccelerometerValues = sensorEvent.values.clone()
             }
             Sensor.TYPE_MAGNETIC_FIELD -> {
-                mMagneticValues = event.values
+                mMagneticValues = sensorEvent.values.clone()
             }
         }
+        // 加速度センサと磁気センサ両方取得した場合方位角計算を行う
         if (mAccelerometerValues != null && mMagneticValues != null) {
             val rotationMatrix = FloatArray(MATRIX_SIZE)
             val inclinationMatrix = FloatArray(MATRIX_SIZE)
@@ -151,31 +150,32 @@ class SearchActivity : AppCompatActivity(), LocationListener, SensorEventListene
             val orientationValues = FloatArray(DIMENTION)
             // 加速度センサーと地磁気センサーから回転行列を取得
             SensorManager.getRotationMatrix(rotationMatrix, inclinationMatrix, mAccelerometerValues, mMagneticValues)
-            SensorManager.remapCoordinateSystem(rotationMatrix, SensorManager.AXIS_X, SensorManager.AXIS_Z, remapedMatrix)
+            // ワールド座標とデバイス座標のマッピングを変換する
+            SensorManager.remapCoordinateSystem(rotationMatrix, SensorManager.AXIS_X, SensorManager.AXIS_Y, remapedMatrix)
+            // 端末の姿勢を取得する
             SensorManager.getOrientation(remapedMatrix, orientationValues)
             // ラジアン値を変換し、それぞれの回転角度を取得する
             mAzimuthZ = radianToDegrees(orientationValues[0])
             mPitchX = radianToDegrees(orientationValues[1])
             mRollY = radianToDegrees(orientationValues[2])
-            // ローパスフィルタ
-            mAzimuthZ = (mAzimuthZ * 0.9 + radianToDegrees(orientationValues[0]) * 0.1).toInt()
-            mPitchX = (mPitchX * 0.9 + radianToDegrees(orientationValues[1]) * 0.1).toInt()
-            mRollY = (mRollY * 0.9 + radianToDegrees(orientationValues[2]) * 0.1).toInt()
-            if (mAzimuthZ == 0) {
-                Log.d("MAGNETICFIELD", "X=" + mPitchX + "Y=" + mRollY + "Z=" + mAzimuthZ)
-            }
+            // ローパスフィルタをかける
+            val info: String = """-------Orientation--------
+                |方位角${mAzimuthZ}
+                |前後の傾斜${mPitchX}
+                |左右の傾斜${mRollY}
+            """.trimMargin()
             timer++
             if (timer >= 20) {
                 // -mAzimuthZ.toFloat()を代入して常に北を指し示す
-                search_arrow.rotation = -mAzimuthZ.toFloat()
-                // 常に北を指し示す矢印を、gpsDegree分回転させることで自転車の位置を示す
-                Log.d("INSERT", gpsDegree.toString())
-                search_arrow.rotation += gpsDegree.toFloat()
-                Log.d("SearchArrow", search_arrow.rotation.toString())
+                search_arrow.rotation = (-mAzimuthZ.toFloat() + gpsDegree).toFloat()
                 timer = 0
             }
-            angle.text = mAzimuthZ.toString()
+            angle.text = info
         }
+    }
+
+    private fun radianToDegrees(angrad: Float): Int {
+        return Math.floor(if (angrad >= 0) Math.toDegrees(angrad.toDouble()) else 360 + Math.toDegrees(angrad.toDouble())).toInt()
     }
 }
 
@@ -191,7 +191,7 @@ class MyMathList() {
     public fun calcDistance(targetLongitude: Double, targetLatitude: Double, currentLongitude: Double, currentLatitude: Double): Double {
         val diffLongitude = targetLongitude - currentLongitude
         val diffLatitude = targetLatitude - currentLatitude
-        val value = pow(diffLongitude, 2) + pow(diffLatitude, 2)
+        val value = pow(diffLongitude, 2) + pow(diffLatitude, 1)
         val distance = Math.sqrt(value)
         return distance
     }
